@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(astro version:*)",
+      "Bash(astro dev:*)",
+      "Bash(dvc version:*)",
+      "Bash(pip install:*)",
+      "Bash(dvc init:*)",
+      "Bash(python -m dvc init:*)",
+      "Bash(python -m dvc remote add:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
