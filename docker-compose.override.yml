@@ -1,7 +1,5 @@
-version: "3.1"
-
 services:
-  postgres:
+  nasa-postgres:
     image: postgres:15
     container_name: nasa-apod-postgres
     environment:
@@ -9,16 +7,17 @@ services:
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: nasa_apod
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - nasa-postgres-data:/var/lib/postgresql/data
     networks:
       - airflow
 
 volumes:
-  postgres-data:
+  nasa-postgres-data:
     driver: local
 
 networks:
   airflow:
+    name: assignment-03_8c6823_airflow
     external: true

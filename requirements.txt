@@ -2,7 +2,7 @@
 
 # Data processing
 pandas==2.2.0
-requests==2.31.0
+requests>=2.32.0
 
 # Database
 psycopg2-binary==2.9.9

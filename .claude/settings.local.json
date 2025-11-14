@@ -9,7 +9,15 @@
       "Bash(dvc init:*)",
       "Bash(python -m dvc init:*)",
       "Bash(python -m dvc remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(docker system:*)",
+      "Bash(docker builder prune:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker network:*)",
+      "Bash(docker inspect:*)"
     ],
     "deny": [],
     "ask": []

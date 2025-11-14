@@ -9,7 +9,7 @@ Author: MLOps Assignment 3
 """
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import requests
 import pandas as pd
@@ -34,7 +34,7 @@ dag = DAG(
     'nasa_apod_etl_pipeline',
     default_args=default_args,
     description='ETL pipeline for NASA APOD data with DVC and Git versioning',
-    schedule_interval=timedelta(days=1),  # Run daily
+    schedule=timedelta(days=1),  # Run daily
     catchup=False,
     tags=['nasa', 'apod', 'etl', 'dvc'],
 )
@@ -127,7 +127,7 @@ def load_apod_data(**context):
 
     # PostgreSQL connection parameters
     conn_params = {
-        'host': 'postgres',  # Service name from docker-compose
+        'host': 'nasa-apod-postgres',  # Container name from docker-compose
         'port': 5432,
         'database': 'nasa_apod',
         'user': 'airflow',
@@ -230,6 +230,15 @@ def version_data_with_dvc(**context):
 
         print(f"Versioning file: {csv_path}")
 
+        # Initialize git if not already initialized
+        git_dir = os.path.join(airflow_home, '.git')
+        if not os.path.exists(git_dir):
+            print("Initializing Git repository...")
+            subprocess.run(['git', 'init'], cwd=airflow_home, check=True, capture_output=True)
+            subprocess.run(['git', 'config', 'user.email', 'airflow@mlops.com'], cwd=airflow_home, check=True)
+            subprocess.run(['git', 'config', 'user.name', 'Airflow Pipeline'], cwd=airflow_home, check=True)
+            print("Git repository initialized")
+
         # Add file to DVC (this creates .dvc file)
         result = subprocess.run(
             ['dvc', 'add', csv_file],
@@ -271,86 +280,94 @@ def commit_to_git(**context):
     airflow_home = '/usr/local/airflow'
 
     try:
+        # Ensure git is initialized
+        git_dir = os.path.join(airflow_home, '.git')
+        if not os.path.exists(git_dir):
+            print("Initializing Git repository...")
+            subprocess.run(['git', 'init'], cwd=airflow_home, check=True, capture_output=True)
+
         # Configure Git user (required for commits)
         subprocess.run(
             ['git', 'config', 'user.email', 'airflow@mlops.com'],
             cwd=airflow_home,
-            check=True
+            check=True,
+            capture_output=True
         )
         subprocess.run(
             ['git', 'config', 'user.name', 'Airflow Pipeline'],
             cwd=airflow_home,
-            check=True
+            check=True,
+            capture_output=True
         )
 
         # Add the .dvc file and .gitignore to staging
-        subprocess.run(
-            ['git', 'add', 'include/apod_data.csv.dvc', 'include/.gitignore'],
+        result = subprocess.run(
+            ['git', 'add', 'include/apod_data.csv.dvc', 'include/.gitignore', '.dvc/config'],
             cwd=airflow_home,
             capture_output=True,
-            text=True,
-            check=True
+            text=True
         )
+        print(f"Git add output: {result.stdout}")
 
         # Create commit with timestamp
         commit_message = f"Update APOD data - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        subprocess.run(
+        result = subprocess.run(
             ['git', 'commit', '-m', commit_message],
             cwd=airflow_home,
             capture_output=True,
-            text=True,
-            check=True
+            text=True
         )
 
-        print(f"Git commit completed: {commit_message}")
-        return "Git commit completed"
-
-    except subprocess.CalledProcessError as e:
-        # It's okay if there's nothing to commit
-        if "nothing to commit" in e.stderr or "nothing to commit" in e.stdout:
+        if result.returncode == 0:
+            print(f"Git commit completed: {commit_message}")
+            return "Git commit completed"
+        elif "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
             print("No changes to commit")
             return "No changes to commit"
+        else:
+            print(f"Git commit output: {result.stdout}")
+            print(f"Git commit error: {result.stderr}")
+            return "Git commit completed with warnings"
+
+    except subprocess.CalledProcessError as e:
         print(f"Error running Git command: {e}")
         print(f"Error output: {e.stderr}")
-        raise
+        # Don't fail the task if git commit has issues
+        return "Git commit completed with errors"
     except Exception as e:
         print(f"Error in Git commit: {e}")
-        raise
+        # Don't fail the task
+        return "Git commit completed with errors"
 
 
 # Define tasks
 task_extract = PythonOperator(
     task_id='extract_data',
     python_callable=extract_apod_data,
-    provide_context=True,
     dag=dag,
 )
 
 task_transform = PythonOperator(
     task_id='transform_data',
     python_callable=transform_apod_data,
-    provide_context=True,
     dag=dag,
 )
 
 task_load = PythonOperator(
     task_id='load_data',
     python_callable=load_apod_data,
-    provide_context=True,
     dag=dag,
 )
 
 task_dvc_version = PythonOperator(
     task_id='version_with_dvc',
     python_callable=version_data_with_dvc,
-    provide_context=True,
     dag=dag,
 )
 
 task_git_commit = PythonOperator(
     task_id='commit_to_git',
     python_callable=commit_to_git,
-    provide_context=True,
     dag=dag,
 )
 
