@@ -1,8 +1,8 @@
 """
 NASA APOD Data Pipeline - Cloud Version
 ========================================
-Optimized for Astronomer Cloud deployment.
-Uses SQLite instead of PostgreSQL to avoid external database requirements.
+Astronomer Cloud deployment with Neon PostgreSQL database.
+Implements full ETL pipeline with DVC versioning and Git integration.
 
 Author: MLOps Assignment 3
 """
@@ -12,7 +12,7 @@ from airflow.providers.standard.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import requests
 import pandas as pd
-import sqlite3
+import psycopg2
 import os
 import subprocess
 from pathlib import Path
@@ -101,7 +101,7 @@ def transform_apod_data(**context):
 
 
 def load_apod_data(**context):
-    """Step 3: Load data to SQLite and CSV"""
+    """Step 3: Load data to PostgreSQL and CSV"""
     print("=" * 60)
     print("STEP 3: LOADING DATA")
     print("=" * 60)
@@ -116,36 +116,50 @@ def load_apod_data(**context):
 
     df = pd.DataFrame([transformed_data])
 
-    # --- Load to SQLite Database ---
-    print("📊 Loading to SQLite database...")
+    # --- Load to PostgreSQL Database ---
+    print("📊 Loading to PostgreSQL database...")
+
+    # Get connection string from environment variable
+    db_conn_string = os.getenv('NEON_DB_CONN_STRING')
+    if not db_conn_string:
+        raise ValueError("NEON_DB_CONN_STRING environment variable not set")
 
     airflow_home = '/usr/local/airflow'
-    db_path = os.path.join(airflow_home, 'include', 'apod_data.db')
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    os.makedirs(os.path.join(airflow_home, 'include'), exist_ok=True)
 
     try:
-        conn = sqlite3.connect(db_path)
+        # Connect to Neon PostgreSQL
+        conn = psycopg2.connect(db_conn_string)
         cursor = conn.cursor()
 
-        # Create table
+        # Create table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS apod_data (
-                date TEXT PRIMARY KEY,
-                title TEXT,
+                id SERIAL PRIMARY KEY,
+                date VARCHAR(50) UNIQUE NOT NULL,
+                title TEXT NOT NULL,
                 explanation TEXT,
                 url TEXT,
-                media_type TEXT,
-                copyright TEXT,
+                media_type VARCHAR(50),
+                copyright VARCHAR(255),
                 hdurl TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
-        # Insert or replace
+        # Insert or update on conflict
         cursor.execute("""
-            INSERT OR REPLACE INTO apod_data
+            INSERT INTO apod_data
             (date, title, explanation, url, media_type, copyright, hdurl)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (date)
+            DO UPDATE SET
+                title = EXCLUDED.title,
+                explanation = EXCLUDED.explanation,
+                url = EXCLUDED.url,
+                media_type = EXCLUDED.media_type,
+                copyright = EXCLUDED.copyright,
+                hdurl = EXCLUDED.hdurl
         """, (
             transformed_data['date'],
             transformed_data['title'],
@@ -161,14 +175,15 @@ def load_apod_data(**context):
         # Verify
         cursor.execute("SELECT COUNT(*) FROM apod_data")
         count = cursor.fetchone()[0]
-        print(f"✅ SQLite: Data loaded successfully")
-        print(f"   Database: {db_path}")
+        print(f"✅ PostgreSQL: Data loaded successfully")
+        print(f"   Database: Neon PostgreSQL (Cloud)")
         print(f"   Total records: {count}")
 
+        cursor.close()
         conn.close()
 
     except Exception as e:
-        print(f"❌ SQLite error: {e}")
+        print(f"❌ PostgreSQL error: {e}")
         raise
 
     # --- Load to CSV ---
