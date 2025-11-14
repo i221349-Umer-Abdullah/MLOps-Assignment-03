@@ -20,9 +20,10 @@ standalone_admin_password.txt
 .dvc/cache
 .dvc/tmp
 
-# Data files (will be tracked by DVC instead)
-*.csv
-!*.csv.dvc
+# Data files (will be tracked by DVC instead for Airflow pipeline)
+# But GitHub Actions pipeline data is tracked in git
+include/*.csv
+!include/*.csv.dvc
 
 # Astronomer
 .astro/
