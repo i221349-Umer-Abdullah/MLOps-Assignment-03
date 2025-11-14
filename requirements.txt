@@ -4,9 +4,6 @@
 pandas==2.2.0
 requests>=2.32.0
 
-# Database
-psycopg2-binary==2.9.9
-
 # Data versioning
 dvc==3.64.0
 
