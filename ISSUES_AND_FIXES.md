@@ -142,10 +142,46 @@ if not os.path.exists(git_dir):
 
 ---
 
+## Issue 11: Cloud Deployment Architecture Decision - SQLite vs PostgreSQL
+**Context**: Assignment requires PostgreSQL, but initial cloud deployment used SQLite
+**Problem**: After successful local deployment with PostgreSQL, switched to SQLite for cloud to avoid external database management
+**User Feedback**: "we cant use sqlite, will have to use postgreSQL... we will try to follow assignment as hardly as possible"
+**Decision Process**:
+1. Researched cloud PostgreSQL options (free tier requirement)
+2. Evaluated Neon PostgreSQL serverless database:
+   - Free tier: 0.5GB storage, 100 compute hours/month
+   - Auto-suspend after 5 min inactivity (500ms cold start)
+   - Completely cloud-based, no local PC required
+   - No credit card required
+3. User approved: "yes" to proceed with Neon setup
+
+**Fix**: Migrated from SQLite to Neon PostgreSQL
+- Updated [dags/nasa_apod_pipeline.py](dags/nasa_apod_pipeline.py:15) - Changed import from `sqlite3` to `psycopg2`
+- Updated [dags/nasa_apod_pipeline.py](dags/nasa_apod_pipeline.py:103-187) - Replaced SQLite connection with PostgreSQL connection using environment variable `NEON_DB_CONN_STRING`
+- Updated [requirements.txt](requirements.txt:8) - Added `psycopg2-binary==2.9.9`
+- Configured Astronomer environment variable for secure connection string storage
+- Redeployed to Astronomer Cloud
+**Status**: ✅ RESOLVED
+
+---
+
+## Issue 12: GitHub Token Workflow Scope
+**File**: `.github/workflows/nasa-apod-pipeline.yml`
+**Problem**: Personal Access Token lacked `workflow` scope to push GitHub Actions workflow files
+**Error Message**:
+```
+! [remote rejected] main -> main (refusing to allow a Personal Access Token to create or update workflow `.github/workflows/nasa-apod-pipeline.yml` without `workflow` scope)
+```
+**Fix**: Removed `.github/workflows/` directory since using Astronomer Cloud for deployment (GitHub Actions workflow not needed)
+**Status**: ✅ RESOLVED
+
+---
+
 ## Summary of All File Changes
 
 ### 1. requirements.txt
 - Changed: `requests==2.31.0` → `requests>=2.32.0`
+- Added: `psycopg2-binary==2.9.9` (for Neon PostgreSQL)
 
 ### 2. docker-compose.override.yml
 - Removed: `version: "3.1"`
@@ -153,18 +189,26 @@ if not os.path.exists(git_dir):
 - Changed: port `5432:5432` → `5433:5432`
 - Removed: `networks` section
 - Renamed: volume `postgres-data` → `nasa-postgres-data`
+- **Note**: Used for local development only; cloud deployment uses Neon PostgreSQL
 
 ### 3. dags/nasa_apod_pipeline.py
 - Changed: Import path for PythonOperator to new Airflow 3.x path
 - Changed: `schedule_interval` → `schedule`
 - Removed: `provide_context=True` from all 5 PythonOperator instances
-- Updated: PostgreSQL host to `nasa-apod-postgres`
+- Updated: PostgreSQL host to `nasa-apod-postgres` (local)
+- **Cloud Version Changes**:
+  - Changed: `import sqlite3` → `import psycopg2`
+  - Changed: Load function to use Neon PostgreSQL with environment variable
+  - Changed: Connection string from hardcoded to `os.getenv('NEON_DB_CONN_STRING')`
 
 ### 4. packages.txt
 - Added: `git` (required for Git operations in Step 5)
 
 ### 5. .gitignore
 - Added: `dvc-storage/` directory
+
+### 6. .github/workflows/
+- Removed: Entire directory (using Astronomer Cloud instead of GitHub Actions)
 
 ---
 
@@ -183,12 +227,29 @@ if not os.path.exists(git_dir):
 ### Working Setup:
 - **Airflow Version**: 3.1.2+astro.1 (Astronomer Runtime 3.1-4)
 - **Python Version**: 3.12
-- **PostgreSQL Version**: 15
+- **PostgreSQL Version**: Neon PostgreSQL (Serverless, Cloud-based)
 - **DVC Version**: 3.64.0
 - **Pandas Version**: 2.2.0
 - **Requests Version**: >=2.32.0
+- **psycopg2-binary Version**: 2.9.9
 
-### Container Architecture:
+### Cloud Deployment Architecture:
+```
+Astronomer Cloud (AWS ap-southeast-1)
+├── Airflow UI: https://cmhyv36ur0viz01kawg1ffecd.astronomer.run/dizdq47g
+├── Deployment ID: cmhyv4tge0vjj01ka2izdq47g
+└── Environment Variables: NEON_DB_CONN_STRING (secret)
+
+Neon PostgreSQL (Cloud)
+├── Region: ap-southeast-1
+├── Database: neondb
+└── Table: apod_data (auto-created by pipeline)
+
+GitHub Repository
+└── https://github.com/i221349-Umer-Abdullah/MLOps-Assignment-03
+```
+
+### Local Development Architecture (Optional):
 ```
 Airflow Containers (Astronomer-managed):
 ├── api-server (port 8080)
@@ -201,8 +262,15 @@ Custom Containers:
 └── nasa-apod-postgres (port 5433→5432)
 ```
 
+### Deployment Timeline:
+1. **2025-11-14**: Initial local development with PostgreSQL
+2. **2025-11-14**: First cloud deployment with SQLite
+3. **2025-11-14**: Final cloud deployment with Neon PostgreSQL
+4. **2025-11-14**: Code pushed to GitHub
+
 ---
 
 **Report Generated**: 2025-11-14
 **Project**: MLOps Assignment 3 - NASA APOD Data Pipeline
-**Status**: All issues resolved, pipeline operational
+**Status**: ✅ All issues resolved, pipeline operational in cloud
+**Next Milestone**: Monitor automated daily runs for 2 weeks (until 2025-11-28)
