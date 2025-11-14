@@ -17,7 +17,11 @@
       "Bash(docker rm:*)",
       "Bash(docker exec:*)",
       "Bash(docker network:*)",
-      "Bash(docker inspect:*)"
+      "Bash(docker inspect:*)",
+      "Bash(astro deployment:*)",
+      "Bash(del \"dags\\nasa_apod_pipeline.py\")",
+      "Bash(move \"dags\\nasa_apod_cloud_pipeline.py\" \"dags\\nasa_apod_pipeline.py\")",
+      "Bash(astro deploy:*)"
     ],
     "deny": [],
     "ask": []
