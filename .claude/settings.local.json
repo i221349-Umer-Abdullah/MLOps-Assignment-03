@@ -22,7 +22,9 @@
       "Bash(del \"dags\\nasa_apod_pipeline.py\")",
       "Bash(move \"dags\\nasa_apod_cloud_pipeline.py\" \"dags\\nasa_apod_pipeline.py\")",
       "Bash(astro deploy:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
