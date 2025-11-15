@@ -49,3 +49,8 @@ Thumbs.db
 dvc-storage/
 ASSIGNMENT_REPORT.md
 PROJECT_SUMMARY.md
+
+# Documentation files (kept locally only)
+ASSIGNMENT_SUMMARY.md
+DEMO_PREPARATION.md
+GITHUB_ACTIONS_DEPLOYMENT.md
